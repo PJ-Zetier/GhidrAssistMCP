@@ -232,6 +232,15 @@ public class AutoCreateStructTool implements McpTool {
             return;
         }
 
+        // Set a meaningful name based on the variable name
+        String structName = generateStructureName(program, highVar.getSymbol().getName());
+        try {
+            structDT.setName(structName);
+        } catch (Exception e) {
+            // If setting name fails, log warning but continue with default name
+            Msg.warn(this, "Failed to set structure name to '" + structName + "': " + e.getMessage());
+        }
+
         // Add structure to data type manager
         DataTypeManager dtm = program.getDataTypeManager();
         structDT = (Structure) dtm.addDataType(structDT, DataTypeConflictHandler.DEFAULT_HANDLER);
@@ -382,9 +391,9 @@ public class AutoCreateStructTool implements McpTool {
     /**
      * Update function parameter with new data type
      */
-    private void updateFunctionParameter(Function function, String paramName, 
+    private void updateFunctionParameter(Function function, String paramName,
                                        DataType newType) throws InvalidInputException, DuplicateNameException {
-        
+
         Parameter[] parameters = function.getParameters();
         Parameter[] newParams = new Parameter[parameters.length];
 
@@ -410,5 +419,36 @@ public class AutoCreateStructTool implements McpTool {
             SourceType.USER_DEFINED,
             newParams
         );
+    }
+
+    /**
+     * Generate a meaningful structure name based on the variable name.
+     * Handles naming conflicts by appending a suffix if needed.
+     */
+    private String generateStructureName(Program program, String variableName) {
+        DataTypeManager dtm = program.getDataTypeManager();
+
+        // Clean up variable name - remove pointer indicators, sanitize
+        String baseName = variableName;
+
+        // Remove common prefixes/suffixes that might not be meaningful for struct names
+        if (baseName.startsWith("p") && baseName.length() > 1 && Character.isUpperCase(baseName.charAt(1))) {
+            // Handle pVariable -> Variable_struct pattern
+            baseName = baseName.substring(1);
+        }
+
+        // Create base structure name
+        String structName = baseName + "_struct";
+
+        // Check if name exists and find a unique name if needed
+        String finalName = structName;
+        int suffix = 1;
+
+        while (dtm.getDataType("/" + finalName) != null) {
+            finalName = structName + "_" + suffix;
+            suffix++;
+        }
+
+        return finalName;
     }
 }
